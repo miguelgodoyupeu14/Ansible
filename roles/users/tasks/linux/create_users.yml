@@ -1,0 +1,19 @@
+---
+# Crear usuarios y grupos en Linux
+
+- name: Crear usuarios estándar
+  user:
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    groups: "{{ item.groups | default('users') }}"
+    shell: /bin/bash
+    state: present
+  loop: "{{ standard_users | default([]) }}"
+  when: standard_users is defined
+
+- name: Configurar claves SSH para usuarios
+  authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.ssh_key }}"
+  loop: "{{ standard_users | default([]) }}"
+  when: standard_users is defined

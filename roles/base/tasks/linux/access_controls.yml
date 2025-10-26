@@ -1,0 +1,56 @@
+---
+# Controles de acceso y contraseñas seguras para Linux
+
+- name: Asegurar política de contraseñas fuertes
+  lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_MIN_LEN'
+    line: 'PASS_MIN_LEN 12'
+    state: present
+
+- name: Configurar bloqueo de cuenta tras intentos fallidos
+  lineinfile:
+    path: /etc/pam.d/common-auth
+    regexp: '^auth.*required.*pam_tally2.so'
+    line: 'auth required pam_tally2.so onerr=fail deny=5 unlock_time=900'
+    state: present
+
+- name: Asegurar permisos de /etc/shadow
+  file:
+    path: /etc/shadow
+    owner: root
+    group: shadow
+    mode: '0640'
+
+- name: Deshabilitar root login por SSH
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^PermitRootLogin'
+    line: 'PermitRootLogin no'
+    state: present
+  notify: Restart ssh
+
+- name: Asegurar sudoers seguro
+  lineinfile:
+    path: /etc/sudoers
+    regexp: '^%admin'
+    line: '%admin ALL=(ALL) ALL'
+    validate: 'visudo -cf %s'
+    state: present
+
+- name: Crear usuarios administradores seguros
+  user:
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    groups: "{{ item.groups | default('admin') }}"
+    shell: /bin/bash
+    state: present
+  loop: "{{ admin_users | default([]) }}"
+  when: admin_users is defined
+
+- name: Asegurar autenticación por llave SSH
+  authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.ssh_key }}"
+  loop: "{{ admin_users | default([]) }}"
+  when: admin_users is defined

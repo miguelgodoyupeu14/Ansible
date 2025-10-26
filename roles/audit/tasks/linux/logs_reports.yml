@@ -1,0 +1,33 @@
+---
+# Recolectar logs y reportes en Linux
+
+- name: Recolectar logs de autenticación
+  fetch:
+    src: /var/log/auth.log
+    dest: ./reports/{{ inventory_hostname }}/auth.log
+    flat: yes
+  ignore_errors: yes
+
+- name: Recolectar logs de sudo
+  fetch:
+    src: /var/log/auth.log
+    dest: ./reports/{{ inventory_hostname }}/sudo.log
+    flat: yes
+  ignore_errors: yes
+
+- name: Recolectar logs de sistema
+  fetch:
+    src: /var/log/syslog
+    dest: ./reports/{{ inventory_hostname }}/syslog.log
+    flat: yes
+  ignore_errors: yes
+
+- name: Generar reporte de uso de disco
+  shell: df -h > /tmp/disk_usage.txt
+
+- name: Descargar reporte de uso de disco
+  fetch:
+    src: /tmp/disk_usage.txt
+    dest: ./reports/{{ inventory_hostname }}/disk_usage.txt
+    flat: yes
+  ignore_errors: yes

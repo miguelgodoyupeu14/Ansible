@@ -1,0 +1,25 @@
+---
+# Políticas académicas para entorno Windows Server
+
+- name: Configurar política de bloqueo de pantalla
+  win_shell: 'powershell -command "Set-ItemProperty -Path HKCU:\Control Panel\Desktop -Name ScreenSaveTimeOut -Value 900"'
+
+- name: Configurar política de expiración de contraseña
+  win_shell: net accounts /maxpwage:60
+
+- name: Configurar grupo de usuarios estudiantes
+  win_group:
+    name: "Estudiantes"
+    state: present
+
+- name: Crear carpeta compartida para recursos académicos
+  win_file:
+    path: 'D:\RecursosAcademicos'
+    state: directory
+
+- name: Asignar permisos a grupo Estudiantes
+  win_acl:
+    path: 'D:\RecursosAcademicos'
+    user: 'Estudiantes'
+    rights: ReadAndExecute
+    type: allow

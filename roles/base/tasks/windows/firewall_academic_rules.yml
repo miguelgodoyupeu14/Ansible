@@ -1,0 +1,39 @@
+---
+# Reglas de firewall específicas para entorno académico en Windows
+
+- name: Permitir acceso a recursos compartidos (SMB)
+  win_firewall_rule:
+    name: "Permitir SMB"
+    localport: [445, 139]
+    action: allow
+    direction: in
+    protocol: TCP
+    enabled: yes
+
+- name: Permitir acceso a impresoras en red
+  win_firewall_rule:
+    name: "Permitir impresoras en red"
+    localport: 9100
+    action: allow
+    direction: in
+    protocol: TCP
+    enabled: yes
+
+- name: Bloquear puertos no utilizados
+  win_firewall_rule:
+    name: "Bloquear puertos no utilizados"
+    localport: 135-139,445,3389,5985
+    action: block
+    direction: in
+    protocol: TCP
+    enabled: yes
+    profiles: Domain,Private,Public
+
+- name: Permitir acceso a servicios educativos (ejemplo: Moodle)
+  win_firewall_rule:
+    name: "Permitir Moodle"
+    localport: 8080
+    action: allow
+    direction: in
+    protocol: TCP
+    enabled: yes

@@ -1,0 +1,29 @@
+---
+# Controles de acceso y contraseñas seguras para Windows
+
+- name: Configurar política de contraseñas seguras
+  win_shell: net accounts /minpwlen:12 /maxpwage:60 /lockoutthreshold:5 /lockoutduration:15
+
+- name: Deshabilitar cuenta de administrador local
+  win_user:
+    name: Administrator
+    state: disabled
+
+- name: Crear usuarios administradores seguros
+  win_user:
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    groups: "Administradores"
+    state: present
+    password_never_expires: false
+    user_cannot_change_password: false
+  loop: "{{ admin_users | default([]) }}"
+  when: admin_users is defined
+
+- name: Configurar autenticación por contraseña segura
+  win_user:
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    state: present
+  loop: "{{ admin_users | default([]) }}"
+  when: admin_users is defined

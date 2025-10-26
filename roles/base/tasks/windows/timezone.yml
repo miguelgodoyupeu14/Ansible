@@ -1,0 +1,15 @@
+---
+# Configuración de zona horaria para Windows
+
+- name: Configurar zona horaria
+  win_timezone:
+    timezone: "{{ timezone | default('SA Pacific Standard Time') }}"
+
+- name: Sincronizar hora con servidor NTP
+  win_shell: w32tm /config /syncfromflags:manual /manualpeerlist:"pool.ntp.org" && w32tm /resync
+
+- name: Habilitar y arrancar servicio de hora
+  win_service:
+    name: w32time
+    start_mode: auto
+    state: started

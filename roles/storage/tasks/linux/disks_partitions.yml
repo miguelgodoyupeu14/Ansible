@@ -1,0 +1,32 @@
+---
+# Configuración de discos y particiones en Linux
+
+- name: Detectar discos y particiones
+  setup:
+    gather_subset:
+      - hardware
+      - network
+      - virtual
+  register: hw_facts
+
+- name: Mostrar información de discos
+  debug:
+    var: hw_facts.ansible_devices
+
+- name: Crear partición y formatear disco adicional (ejemplo)
+  parted:
+    device: /dev/sdb
+    number: 1
+    state: present
+    part_type: primary
+    fs_type: ext4
+    resize: yes
+  when: hw_facts.ansible_devices['sdb'] is defined
+
+- name: Montar partición en /data
+  mount:
+    path: /data
+    src: /dev/sdb1
+    fstype: ext4
+    state: mounted
+  when: hw_facts.ansible_devices['sdb'] is defined

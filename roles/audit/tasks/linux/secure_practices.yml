@@ -1,0 +1,24 @@
+---
+# Verificar prácticas seguras de usuario en Linux
+
+- name: Verificar permisos de archivos sensibles
+  stat:
+    path: /etc/shadow
+  register: shadow_stat
+
+- name: Asegurar permisos correctos en /etc/shadow
+  assert:
+    that:
+      - shadow_stat.stat.mode == '0640'
+      - shadow_stat.stat.pw_name == 'root'
+
+- name: Verificar cuentas sin contraseña
+  shell: awk -F: '($2=="" || $2=="*") {print $1}' /etc/shadow
+  register: no_passwd_users
+
+- name: Asegurar que no existan cuentas sin contraseña
+  assert:
+    that:
+      - no_passwd_users.stdout_lines | length == 0
+    fail_msg: "Existen cuentas sin contraseña."
+    success_msg: "No hay cuentas sin contraseña."

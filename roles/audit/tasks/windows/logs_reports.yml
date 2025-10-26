@@ -1,0 +1,29 @@
+---
+# Recolectar logs y reportes en Windows
+
+- name: Recolectar estado de servicios
+  win_shell: 'Get-Service | Out-File C:\AnsibleReports\{{ inventory_hostname }}\services.txt'
+
+- name: Recolectar procesos activos
+  win_shell: 'Get-Process | Out-File C:\AnsibleReports\{{ inventory_hostname }}\processes.txt'
+
+- name: Recolectar últimos eventos del sistema
+  win_shell: 'Get-EventLog -LogName System -Newest 200 | Out-File C:\AnsibleReports\{{ inventory_hostname }}\eventlog.txt'
+
+- name: Copiar reportes al nodo de control
+  fetch:
+    src: 'C:\AnsibleReports\{{ inventory_hostname }}\services.txt'
+    dest: './reports/{{ inventory_hostname }}/services.txt'
+    flat: yes
+
+- name: Copiar reportes adicionales
+  fetch:
+    src: 'C:\AnsibleReports\{{ inventory_hostname }}\processes.txt'
+    dest: './reports/{{ inventory_hostname }}/processes.txt'
+    flat: yes
+
+- name: Copiar logs de eventos
+  fetch:
+    src: 'C:\AnsibleReports\{{ inventory_hostname }}\eventlog.txt'
+    dest: './reports/{{ inventory_hostname }}/eventlog.txt'
+    flat: yes

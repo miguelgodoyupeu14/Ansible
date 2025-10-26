@@ -1,0 +1,13 @@
+---
+# Crear usuarios y grupos en Windows
+
+- name: Crear usuarios estándar
+  win_user:
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    groups: "Usuarios"
+    state: present
+    password_never_expires: false
+    user_cannot_change_password: false
+  loop: "{{ standard_users | default([]) }}"
+  when: standard_users is defined

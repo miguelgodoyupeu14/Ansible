@@ -1,0 +1,38 @@
+---
+# Configuración de sistemas de archivos en Linux
+
+- name: Verificar sistema de archivos en /data
+  command: lsblk -f /dev/sdb1
+  register: fs_check
+  changed_when: false
+  when: ansible_mounts | selectattr('mount', 'equalto', '/data') | list | length == 0
+
+- name: Crear sistema de archivos ext4 si no existe
+  filesystem:
+    fstype: ext4
+    dev: /dev/sdb1
+  when: fs_check.stdout is not search('ext4')
+
+- name: Asegurar permisos y propietario en /data
+  file:
+    path: /data
+    owner: root
+    group: root
+    mode: '0775'
+
+- name: Mostrar tipo de sistema de archivos
+  debug:
+    var: data_fs.stdout_lines
+
+- name: Configurar cuotas de disco en /data
+  package:
+    name: quota
+    state: present
+
+- name: Habilitar cuotas en /etc/fstab
+  lineinfile:
+    path: /etc/fstab
+    regexp: '^/dev/sdb1'
+    line: '/dev/sdb1 /data ext4 defaults,usrquota,grpquota 0 2'
+    state: present
+  when: hw_facts.ansible_devices['sdb'] is defined

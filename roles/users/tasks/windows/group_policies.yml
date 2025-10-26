@@ -1,0 +1,8 @@
+---
+# Configurar políticas de grupo en Windows
+
+- name: Configurar política de contraseñas seguras
+  win_shell: net accounts /minpwlen:12 /maxpwage:60 /uniquepw:5
+
+- name: Configurar bloqueo de cuenta tras intentos fallidos
+  win_shell: net accounts /lockoutthreshold:5 /lockoutduration:15

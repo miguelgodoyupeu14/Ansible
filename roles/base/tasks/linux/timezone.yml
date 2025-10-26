@@ -1,0 +1,17 @@
+---
+# Configuración de zona horaria para Linux
+
+- name: Configurar zona horaria
+  timezone:
+    name: "{{ timezone | default('America/Lima') }}"
+
+- name: Sincronizar hora con NTP
+  apt:
+    name: ntp
+    state: present
+
+- name: Habilitar y arrancar servicio NTP
+  service:
+    name: ntp
+    state: started
+    enabled: yes

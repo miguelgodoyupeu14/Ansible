@@ -1,0 +1,96 @@
+---
+# Firewall y antivirus para Linux (reforzado)
+
+- name: Instalar y habilitar UFW
+  apt:
+    name: ufw
+    state: present
+  become: true
+
+- name: Configurar UFW - Denegar todo por defecto
+  ufw:
+    state: enabled
+    policy: deny
+
+- name: Permitir SSH
+  ufw:
+    rule: allow
+    port: 22
+    proto: tcp
+
+- name: Permitir puertos requeridos para servicios y gaming
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: any
+  loop: "{{ gaming_ports | default([]) }}"
+  when: gaming_ports is defined
+
+- name: Permitir puertos requeridos para servicios académicos
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: any
+  loop: "{{ academic_ports | default([]) }}"
+  when: academic_mode | default(false) and academic_ports is defined
+
+- name: Instalar ClamAV (antivirus)
+  apt:
+    name: clamav
+    state: present
+
+- name: Actualizar firmas de ClamAV
+  command: freshclam
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Habilitar y arrancar servicio ClamAV
+  service:
+    name: clamav-freshclam
+    state: started
+    enabled: yes
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Instalar y habilitar fail2ban para protección adicional
+  apt:
+    name: fail2ban
+    state: present
+
+- name: Asegurar configuración básica de fail2ban
+  copy:
+    dest: /etc/fail2ban/jail.local
+    content: |
+      [sshd]
+      enabled = true
+      port = ssh
+      filter = sshd
+      logpath = /var/log/auth.log
+      maxretry = 5
+      bantime = 3600
+  notify: Restart fail2ban
+
+- name: Habilitar y arrancar fail2ban
+  service:
+    name: fail2ban
+    state: started
+    enabled: yes
+
+- name: Auditar cambios de firewall y autenticación
+  lineinfile:
+    path: /etc/audit/rules.d/audit.rules
+    line: '-w /etc/ufw/ufw.conf -p wa -k ufw_changes'
+    create: yes
+    state: present
+
+- name: Auditar cambios en /etc/shadow
+  lineinfile:
+    path: /etc/audit/rules.d/audit.rules
+    line: '-w /etc/shadow -p wa -k shadow_changes'
+    create: yes
+    state: present
+
+- name: Reiniciar auditd para aplicar reglas
+  service:
+    name: auditd
+    state: restarted
+    enabled: yes
+  ignore_errors: yes

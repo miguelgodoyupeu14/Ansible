@@ -1,0 +1,17 @@
+---
+# Configurar sudoers y políticas en Linux
+
+- name: Configurar sudo sin password para grupo admin solo en comandos críticos
+  lineinfile:
+    path: /etc/sudoers.d/ansible_admin
+    line: '%admin ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /usr/bin/apt, /usr/bin/yum'
+    create: yes
+    validate: 'visudo -cf %s'
+    mode: '0440'
+
+- name: Establecer política de contraseñas mínima
+  lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_MIN_LEN'
+    line: 'PASS_MIN_LEN 12'
+    state: present

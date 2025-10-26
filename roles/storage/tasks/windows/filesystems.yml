@@ -1,0 +1,34 @@
+---
+# Configuración de sistemas de archivos en Windows
+
+- name: Verificar sistema de archivos en D:
+  win_command: 'fsutil fsinfo volumeinfo D:'
+  register: fs_check
+  ignore_errors: yes
+  changed_when: false
+  when: disk_info.ansible_facts.ansible_disks | length > 1
+
+- name: Formatear volumen D: como NTFS si no lo es
+  win_format:
+    drive_letter: D
+    file_system: NTFS
+    force: yes
+  when: fs_check.stdout is not search('NTFS') and disk_info.ansible_facts.ansible_disks | length > 1
+
+- name: Asignar permisos NTFS a D:\data
+  win_acl:
+    path: 'D:\\data'
+    user: '{{ win_admin_user | default("Administrador") }}'
+    rights: FullControl
+    type: allow
+  when: disk_info.ansible_facts.ansible_disks | length > 1
+
+- name: Verificar tipo de sistema de archivos en D:
+  win_shell: 'Get-Volume -DriveLetter D | Select-Object FileSystem'
+  register: fs_type
+  when: disk_info.ansible_facts.ansible_disks | length > 1
+
+- name: Mostrar tipo de sistema de archivos
+  debug:
+    var: fs_type.stdout_lines
+  when: fs_type is defined

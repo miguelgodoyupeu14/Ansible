@@ -1,0 +1,25 @@
+---
+# Automatización de tareas (cron) en Linux
+
+- name: Asegurar que cron esté instalado
+  apt:
+    name: cron
+    state: present
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Crear tarea programada de backup diaria
+  cron:
+    name: "Backup diario"
+    user: root
+    minute: 0
+    hour: 2
+    job: "/opt/scripts/backup.sh"
+
+- name: Crear tarea programada de limpieza semanal
+  cron:
+    name: "Limpieza semanal"
+    user: root
+    minute: 0
+    hour: 3
+    weekday: 0
+    job: "/opt/scripts/cleanup.sh"

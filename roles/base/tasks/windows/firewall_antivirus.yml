@@ -1,0 +1,107 @@
+---
+# Firewall y antivirus para Windows (reforzado)
+
+- name: Habilitar firewall de Windows
+  win_firewall:
+    state: enabled
+
+- name: Bloquear todo el tráfico entrante por defecto
+  win_firewall_rule:
+    name: "Bloquear todo entrante"
+    action: block
+    direction: in
+    enabled: yes
+    profiles: Domain,Private,Public
+    protocol: Any
+    localport: Any
+
+- name: Permitir RDP y WinRM
+  win_firewall_rule:
+    name: "Permitir RDP y WinRM"
+    localport: [3389, 5985]
+    action: allow
+    direction: in
+    protocol: TCP
+    enabled: yes
+
+- name: Permitir puertos requeridos para servicios académicos
+  win_firewall_rule:
+    name: "Servicios Académicos"
+    localport: "{{ item }}"
+    action: allow
+    direction: in
+    protocol: TCP
+    enabled: yes
+  loop: "{{ academic_ports | default([]) }}"
+  when: academic_mode | default(false) and academic_ports is defined
+
+- name: Permitir acceso a recursos compartidos (SMB)
+  win_firewall_rule:
+    name: "Permitir SMB"
+    localport: [445, 139]
+    action: allow
+    direction: in
+    protocol: TCP
+    enabled: yes
+
+- name: Permitir acceso a impresoras en red
+  win_firewall_rule:
+    name: "Permitir impresoras en red"
+    localport: 9100
+    action: allow
+    direction: in
+    protocol: TCP
+    enabled: yes
+
+- name: Instalar antivirus Windows Defender (si no está)
+  win_feature:
+    name: Windows-Defender-Features
+    state: present
+
+- name: Habilitar protección en tiempo real
+  win_shell: Set-MpPreference -DisableRealtimeMonitoring $false
+
+- name: Configurar análisis programado semanal
+  win_scheduled_task:
+    name: "Defender Weekly Scan"
+    description: "Escaneo semanal con Windows Defender"
+    actions:
+      - path: Powershell.exe
+        arguments: "-Command Start-MpScan -ScanType FullScan"
+    trigger:
+      - type: weekly
+        days_of_week: Sunday
+        start_boundary: '2025-01-05T03:00:00'
+    username: SYSTEM
+    state: present
+
+- name: Escaneo rápido con Windows Defender
+  win_shell: Start-MpScan -ScanType QuickScan
+
+- name: Actualizar firmas de Windows Defender
+  win_shell: Update-MpSignature
+
+- name: Habilitar notificaciones de seguridad
+  win_shell: Set-MpPreference -ThreatIDDefaultAction_1 6
+
+- name: Deshabilitar servicios inseguros (ejemplo: Telnet)
+  win_service:
+    name: TlntSvr
+    state: stopped
+    start_mode: disabled
+  ignore_errors: yes
+
+- name: Auditar cambios de firewall y antivirus
+  win_audit_policy_system:
+    subcategory: "Filtering Platform Policy Change"
+    audit_type: success, failure
+
+- name: Auditar inicio de sesión y acceso a objetos
+  win_audit_policy_system:
+    subcategory: "Logon"
+    audit_type: success, failure
+
+- name: Auditar acceso a objetos
+  win_audit_policy_system:
+    subcategory: "Object Access"
+    audit_type: success, failure

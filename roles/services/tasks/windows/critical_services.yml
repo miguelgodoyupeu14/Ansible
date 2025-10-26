@@ -1,0 +1,28 @@
+---
+# Servicios críticos en Windows (WinRM, w32time, etc.)
+
+- name: Habilitar y arrancar servicio de hora (w32time)
+  win_service:
+    name: w32time
+    start_mode: auto
+    state: started
+
+- name: Habilitar y arrancar WinRM
+  win_service:
+    name: WinRM
+    start_mode: auto
+    state: started
+
+- name: Habilitar y arrancar servicio de tareas programadas
+  win_service:
+    name: Schedule
+    start_mode: auto
+    state: started
+
+- name: Comprobar estado de procesos críticos
+  win_shell: 'Get-Process | Where-Object {$_.Name -eq "svchost"}'
+  register: process_status
+
+- name: Debug - Mostrar contenido de process_status
+  debug:
+    var: process_status

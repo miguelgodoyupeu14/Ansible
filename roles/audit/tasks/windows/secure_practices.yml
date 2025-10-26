@@ -1,0 +1,24 @@
+---
+# Verificar prácticas seguras de usuario en Windows
+
+- name: Verificar cuentas deshabilitadas
+  win_shell: 'Get-LocalUser | Where-Object { $_.Enabled -eq $false } | Select-Object Name'
+  register: disabled_users
+
+- name: Asegurar que la cuenta Administrator esté deshabilitada
+  assert:
+    that:
+      - disabled_users.stdout is search('Administrator')
+    fail_msg: "La cuenta Administrator no está deshabilitada."
+    success_msg: "La cuenta Administrator está deshabilitada."
+
+- name: Verificar usuarios sin contraseña
+  win_shell: 'Get-LocalUser | Where-Object { $_.PasswordRequired -eq $false } | Select-Object Name'
+  register: no_passwd_users
+
+- name: Asegurar que no existan usuarios sin contraseña
+  assert:
+    that:
+      - no_passwd_users.stdout_lines | length == 0
+    fail_msg: "Existen usuarios sin contraseña."
+    success_msg: "No hay usuarios sin contraseña."

@@ -1,0 +1,43 @@
+---
+# Servicios críticos en Linux (sshd, cron, etc.)
+
+- name: Asegurar que sshd esté instalado y habilitado
+  service:
+    name: ssh
+    state: started
+    enabled: yes
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Asegurar que cron esté instalado y habilitado
+  service:
+    name: cron
+    state: started
+    enabled: yes
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Asegurar que systemd-timesyncd esté habilitado
+  service:
+    name: systemd-timesyncd
+    state: started
+    enabled: yes
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Asegurar que firewalld esté instalado y habilitado (RedHat)
+  service:
+    name: firewalld
+    state: started
+    enabled: yes
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: Habilitar y arrancar cron
+  service:
+    name: cron
+    state: started
+    enabled: yes
+
+- name: Verificar estado de servicios críticos
+  service_facts:
+
+- name: Mostrar estado de servicios críticos
+  debug:
+    var: ansible_facts.services

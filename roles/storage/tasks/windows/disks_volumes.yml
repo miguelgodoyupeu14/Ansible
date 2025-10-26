@@ -1,0 +1,32 @@
+---
+# Configuración de discos y volúmenes en Windows
+
+- name: Obtener información de discos
+  community.windows.win_disk_facts:
+  register: disk_info
+
+- name: Mostrar información de discos
+  debug:
+    var: disk_info
+
+- name: Crear y formatear volumen D: si existe disco adicional
+  community.windows.win_partition:
+    disk_number: 1
+    partition_number: 1
+    drive_letter: D
+    state: present
+  when: disk_info.ansible_facts.ansible_disks | length > 1
+
+- name: Crear carpeta D:\data
+  win_file:
+    path: 'D:\\data'
+    state: directory
+  when: disk_info.ansible_facts.ansible_disks | length > 1
+
+- name: Asignar permisos NTFS a D:\data
+  win_acl:
+    path: 'D:\\data'
+    user: '{{ win_admin_user | default("Administrador") }}'
+    rights: FullControl
+    type: allow
+  when: disk_info.ansible_facts.ansible_disks | length > 1
