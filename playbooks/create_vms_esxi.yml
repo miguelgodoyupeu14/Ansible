@@ -3,13 +3,14 @@
   hosts: localhost
   gather_facts: no
   vars:
+    ansible_python_interpreter: "{{ playbook_dir }}/../venv/bin/python"
     vcenter_hostname: "168.121.48.254"
     vcenter_username: "root"
     vcenter_password: "qwe123$"
     esxi_datastore: "datastore1"
-    esxi_network: "VM Network"  # Cambia si tu red tiene otro nombre
+    esxi_network: "VM Network" # Cambia si tu red tiene otro nombre
     esxi_folder: "/"
-    esxi_cluster: null  # No se usa en ESXi standalone
+    # esxi_cluster eliminado porque no se usa y null causa errores
     guest_zentyal:
       name: "Zentyal-8"
       iso_path: "[datastore1] zentyal-8.0-development-amd64.iso"
@@ -18,14 +19,14 @@
       vcpu: 2
       disk_gb: 40
       nics:
-        - name: "Puerto_Inter"
-          ip: "192.168.122.20"
-          netmask: "255.255.255.0"
-          gateway: "192.168.122.1"
-        - name: "Pg2"
-          ip: "10.10.10.20"
-          netmask: "255.255.255.0"
-          gateway: "10.10.10.1"
+      - name: "Puerto_Inter"
+        ip: "192.168.122.20"
+        netmask: "255.255.255.0"
+        gateway: "192.168.122.1"
+      - name: "Pg2"
+        ip: "10.10.10.20"
+        netmask: "255.255.255.0"
+        gateway: "10.10.10.1"
     guest_win11:
       name: "Win11-Lab"
       iso_path: "[datastore1] Win11_24H2_Spanish_x64.iso"
@@ -33,76 +34,82 @@
       memory_mb: 4096
       vcpu: 2
       disk_gb: 60
-      nic:
-        name: "Pg2"
+      nics:
+      - name: "Pg2"
         ip: "10.10.10.10"
         netmask: "255.255.255.0"
         gateway: "10.10.10.1"
 
   tasks:
-    - name: Crear VM Zentyal
-      community.vmware.vmware_guest:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        port: 10122
-        validate_certs: no
-        name: "{{ guest_zentyal.name }}"
-        state: poweredon
-        guest_id: "{{ guest_zentyal.guest_id }}"
-        disk:
-          - size_gb: "{{ guest_zentyal.disk_gb }}"
-            type: thin
-            datastore: "{{ esxi_datastore }}"
-        hardware:
-          memory_mb: "{{ guest_zentyal.memory_mb }}"
-          num_cpus: "{{ guest_zentyal.vcpu }}"
-        cdrom:
-          - type: iso
-            iso_path: "{{ guest_zentyal.iso_path }}"
-        networks:
-          - name: "{{ guest_zentyal.nics[0].name }}"
-            type: static
-            ip: "{{ guest_zentyal.nics[0].ip }}"
-            netmask: "{{ guest_zentyal.nics[0].netmask }}"
-            gateway: "{{ guest_zentyal.nics[0].gateway }}"
-          - name: "{{ guest_zentyal.nics[1].name }}"
-            type: static
-            ip: "{{ guest_zentyal.nics[1].ip }}"
-            netmask: "{{ guest_zentyal.nics[1].netmask }}"
-            gateway: "{{ guest_zentyal.nics[1].gateway }}"
-        folder: "{{ esxi_folder }}"
+  - name: Crear VM Zentyal
+    community.vmware.vmware_guest:
+      hostname: "{{ vcenter_hostname }}"
+      username: "{{ vcenter_username }}"
+      password: "{{ vcenter_password }}"
+      port: 10122
+      validate_certs: no
+      name: "{{ guest_zentyal.name }}"
+      state: poweredon
+      guest_id: "{{ guest_zentyal.guest_id }}"
+      disk:
+      - size_gb: "{{ guest_zentyal.disk_gb }}"
+        type: thin
         datastore: "{{ esxi_datastore }}"
-        wait_for_ip_address: no
-      delegate_to: localhost
+      hardware:
+        memory_mb: "{{ guest_zentyal.memory_mb }}"
+        num_cpus: "{{ guest_zentyal.vcpu }}"
+      cdrom:
+      - type: iso
+        iso_path: "{{ guest_zentyal.iso_path }}"
+        controller_type: ide
+        controller_number: 0
+        unit_number: 0
+      networks:
+      - name: "{{ guest_zentyal.nics[0].name }}"
+        type: static
+        ip: "{{ guest_zentyal.nics[0].ip }}"
+        netmask: "{{ guest_zentyal.nics[0].netmask }}"
+        gateway: "{{ guest_zentyal.nics[0].gateway }}"
+      - name: "{{ guest_zentyal.nics[1].name }}"
+        type: static
+        ip: "{{ guest_zentyal.nics[1].ip }}"
+        netmask: "{{ guest_zentyal.nics[1].netmask }}"
+        gateway: "{{ guest_zentyal.nics[1].gateway }}"
+      folder: "{{ esxi_folder }}"
+      datastore: "{{ esxi_datastore }}"
+      wait_for_ip_address: no
+    delegate_to: localhost
 
-    - name: Crear VM Windows 11
-      community.vmware.vmware_guest:
-        hostname: "{{ vcenter_hostname }}"
-        username: "{{ vcenter_username }}"
-        password: "{{ vcenter_password }}"
-        port: 10122
-        validate_certs: no
-        name: "{{ guest_win11.name }}"
-        state: poweredon
-        guest_id: "{{ guest_win11.guest_id }}"
-        disk:
-          - size_gb: "{{ guest_win11.disk_gb }}"
-            type: thin
-            datastore: "{{ esxi_datastore }}"
-        hardware:
-          memory_mb: "{{ guest_win11.memory_mb }}"
-          num_cpus: "{{ guest_win11.vcpu }}"
-        cdrom:
-          - type: iso
-            iso_path: "{{ guest_win11.iso_path }}"
-        networks:
-          - name: "{{ guest_win11.nic.name }}"
-            type: static
-            ip: "{{ guest_win11.nic.ip }}"
-            netmask: "{{ guest_win11.nic.netmask }}"
-            gateway: "{{ guest_win11.nic.gateway }}"
-        folder: "{{ esxi_folder }}"
+  - name: Crear VM Windows 11
+    community.vmware.vmware_guest:
+      hostname: "{{ vcenter_hostname }}"
+      username: "{{ vcenter_username }}"
+      password: "{{ vcenter_password }}"
+      port: 10122
+      validate_certs: no
+      name: "{{ guest_win11.name }}"
+      state: poweredon
+      guest_id: "{{ guest_win11.guest_id }}"
+      disk:
+      - size_gb: "{{ guest_win11.disk_gb }}"
+        type: thin
         datastore: "{{ esxi_datastore }}"
-        wait_for_ip_address: no
-      delegate_to: localhost
+      hardware:
+        memory_mb: "{{ guest_win11.memory_mb }}"
+        num_cpus: "{{ guest_win11.vcpu }}"
+      cdrom:
+      - type: iso
+        iso_path: "{{ guest_win11.iso_path }}"
+        controller_type: ide
+        controller_number: 0
+        unit_number: 0
+      networks:
+      - name: "{{ guest_win11.nics[0].name }}"
+        type: static
+        ip: "{{ guest_win11.nics[0].ip }}"
+        netmask: "{{ guest_win11.nics[0].netmask }}"
+        gateway: "{{ guest_win11.nics[0].gateway }}"
+      folder: "{{ esxi_folder }}"
+      datastore: "{{ esxi_datastore }}"
+      wait_for_ip_address: no
+    delegate_to: localhost
