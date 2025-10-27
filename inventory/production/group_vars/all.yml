@@ -1,4 +1,6 @@
----
+# Variables para todos los hosts
+vault_addr: "http://localhost:8200"
+vault_token: "root"
 # Variables para todos los hosts
 
 # Configuración de zona horaria

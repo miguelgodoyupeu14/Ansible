@@ -1,0 +1,11 @@
+---
+- name: Prueba de lookup de Vault
+  hosts: localhost
+  gather_facts: false
+  tasks:
+  - name: Leer secreto de Vault (ruta data)
+    debug:
+      msg: "{{ lookup('community.hashi_vault.hashi_vault', 'secret=secret/data/vcenter field=password token={{ vault_token }} url={{ vault_addr }} engine_version=2') }}"
+  - name: Leer secreto de Vault
+    debug:
+      msg: "{{ lookup('community.hashi_vault.hashi_vault', 'secret=secret/data/vcenter field=password token={{ vault_token }} url={{ vault_addr }} engine_version=2') }}"

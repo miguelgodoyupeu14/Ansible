@@ -199,6 +199,38 @@ Esta nueva estructura reemplaza:
 - **Organizado por categorías**: usuarios, servicios, gaming, etc.
 - **Fácil mantenimiento** con el script helper
 
+## 🔐 Gestión de secretos con HashiCorp Vault
+
+Desde octubre 2025, todos los secretos (contraseñas, claves API, etc.) se gestionan exclusivamente con HashiCorp Vault. No se deben almacenar secretos en archivos locales ni en el repositorio.
+
+### Cómo agregar y consultar secretos
+
+1. **Agregar un secreto a Vault** (ejemplo desde la terminal):
+   ```bash
+   export VAULT_ADDR="http://localhost:8200"
+   export VAULT_TOKEN="<tu_token>"
+   vault kv put secret/vcenter password="mi_password_supersegura"
+   ```
+
+2. **Consultar un secreto desde Ansible** (en tus roles/playbooks):
+   ```yaml
+   vcenter_password: "{{ lookup('community.hashi_vault.hashi_vault', 'secret=secret/vcenter field=password token={{ vault_token }} url={{ vault_addr }}') }}"
+   ```
+
+3. **Variables de conexión**
+   - Configura `vault_addr` y `vault_token` en `inventory/production/group_vars/all.yml`.
+
+4. **Prueba de integración**
+   - Ejecuta el playbook `vault_test.yml` para verificar la conexión:
+     ```bash
+     ansible-playbook vault_test.yml
+     ```
+
+5. **Buenas prácticas**
+   - Nunca subas secretos al repositorio.
+   - Usa tokens de Vault de corta duración o con permisos mínimos.
+   - Documenta rutas y nombres de secretos en Vault, pero nunca sus valores.
+
 ## �🐛 Troubleshooting
 
 ### Conexión SSH
