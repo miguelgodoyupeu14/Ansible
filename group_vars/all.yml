@@ -1,0 +1,16 @@
+# Variables globales aplicables a todos los hosts
+ansible_user: "ansible"
+ansible_become: true
+
+# Locking defaults
+block_policy:
+  method: "combined"   # combined = network + OS-level
+  temporary_default: true
+  temporary_timeout_minutes: 60
+
+# Storage defaults
+shared_disk_device: "/dev/sdb"
+shared_mount_point: "/srv/shared"
+
+# Defaults for checks
+safe_run: true

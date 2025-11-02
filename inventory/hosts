@@ -1,0 +1,32 @@
+# Inventario principal (placeholders) para los dos entornos lógicos
+# Game Center: Zentyal + 3 clientes Windows 11
+# Académico: Windows Server 2022 (DC) + 3 clientes Pop!_OS
+
+[zentyal]
+# Host Zentyal (Router/DHCP/DNS/SMB)
+zentyal ansible_host=192.168.122.20 ansible_user=root ansible_ssh_private_key_file=~/.ssh/id_ed25519 gaming_enabled=true
+
+[win2022_router]
+# Windows Server 2022 Domain Controller
+win2022 ansible_host=192.168.200.10 ansible_user=Administrator ansible_connection=winrm ansible_winrm_transport=ntlm ansible_winrm_server_cert_validation=ignore academic_mode=true
+
+[game_clients]
+# 3 clientes Windows 11 (ejemplo IPs)
+win11-client1 ansible_host=10.10.10.11 ansible_user=Administrator ansible_connection=winrm
+win11-client2 ansible_host=10.10.10.12 ansible_user=Administrator ansible_connection=winrm
+win11-client3 ansible_host=10.10.10.13 ansible_user=Administrator ansible_connection=winrm
+
+[acad_clients]
+# 3 clientes Pop!_OS (ejemplo IPs)
+popos-client1 ansible_host=192.168.200.21 ansible_user=popos ansible_become=true
+popos-client2 ansible_host=192.168.200.22 ansible_user=popos ansible_become=true
+popos-client3 ansible_host=192.168.200.23 ansible_user=popos ansible_become=true
+
+[staging]
+# Hosts staging (opcionales)
+staging-1 ansible_host=192.168.250.10 ansible_user=vagrant
+
+[all:vars]
+# Variables globales por defecto. Reemplaza con group_vars/* según entornos.
+ansible_python_interpreter=/usr/bin/python3
+# HashiVault settings se cargan desde group_vars/vault.yml
