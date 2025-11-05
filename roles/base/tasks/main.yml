@@ -12,7 +12,7 @@
 - name: Incluir optimización gaming (solo Zentyal)
   include_role:
     name: gaming
-  when: gaming_enabled | default(false)
+  when: (gaming_enabled | default(false)) | bool
 
 - name: Incluir políticas académicas (solo Windows Server)
   include_tasks: windows/academic_policies.yml
