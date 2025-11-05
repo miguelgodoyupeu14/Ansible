@@ -14,3 +14,7 @@ admin_user: "miguelgod"
 
 # Directorio de scripts común
 default_scripts_path: "/opt/scripts"
+
+# Windows credentials (placeholders). Replace with real secrets or use Vault.
+windows_password: "CHANGE_ME_windows_password"
+win11_password: "CHANGE_ME_win11_password"
