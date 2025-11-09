@@ -1,5 +1,15 @@
 ---
+
 # Tareas para configurar gaming server con Steam
+
+- name: Definir contraseña de Steam (temporalmente estática para debug)
+  set_fact:
+    steam_password: "STEAMUSER"
+
+- name: "DEBUG: Mostrar contraseña de steamuser"
+  ansible.builtin.debug:
+    msg: "La contraseña de steamuser es: {{ steam_password | default('NO DEFINIDA') }}"
+  tags: always
 
 - name: "📋 GAMING SERVER - Información inicial del sistema"
   ansible.builtin.debug:
@@ -90,6 +100,7 @@
     shell: /bin/bash
     create_home: yes
     system: yes
+    password: "{{ steam_password | password_hash('sha512') }}"
   register: steam_user_created
 
 - name: "📋 Debug - Usuario Steam configurado"

@@ -90,7 +90,7 @@
     - gaming
     - steam
     - game-servers
-    when: gaming_enabled | default(false)
+    when: (gaming_enabled | default(false)) | bool
 
   - role: audit
     tags:
@@ -111,7 +111,7 @@
         👥 Usuarios: Cuentas admin, SSH keys, sudoers
         ⚙️  Servicios: Servicios críticos habilitados y monitoreados
         💾 Almacenamiento: Discos y particiones configurados
-        {% if gaming_enabled | default(false) %}
+        {% if (gaming_enabled | default(false)) | bool %}
         🎮 Gaming Center: Steam + servidores de juegos listos
         {% endif %}
         📊 Auditoría: Logs y reportes configurados
@@ -123,7 +123,7 @@
         - Memoria: {{ ansible_memtotal_mb | default('N/A') }}MB
         - CPU: {{ ansible_processor_vcpus | default('N/A') }} cores
 
-        {% if gaming_enabled | default(false) %}
+        {% if (gaming_enabled | default(false)) | bool %}
         🎮 GAMING CENTER INFORMACIÓN:
         - Steam configurado para usuario: {{ steam_user | default('steamuser') }}
         - Directorio juegos: {{ games_storage | default('/data/games') }}
@@ -175,4 +175,4 @@
         Steam está instalado y listo
         Puedes empezar a instalar servidores de juegos
         Gestión: {{ steam_home | default('/data/steam') }}/scripts/steam-manager.sh
-    when: gaming_enabled | default(false)
+    when: (gaming_enabled | default(false)) | bool
