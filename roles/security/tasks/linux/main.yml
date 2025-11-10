@@ -267,3 +267,34 @@
       \u001b[32m{{ line }}\u001b[0m
       {%   endif %}
       {% endfor %}
+
+###############################################################
+# --- Windows: Configuración de Local Security Policy ---
+###############################################################
+
+- name: Export current Local Security Policy
+  ansible.windows.win_command:
+    cmd: secedit /export /cfg C:\secpol.cfg
+  register: secedit_export
+  when: ansible_os_family == 'Windows'
+
+- name: Importar configuración de seguridad personalizada
+  ansible.windows.win_command:
+    cmd: secedit /configure /db secedit.sdb /cfg C:\ruta\a\tu\secpol_custom.cfg /areas SECURITYPOLICY
+  when: ansible_os_family == 'Windows'
+
+- name: Restringir acceso al Panel de Control
+  ansible.windows.win_regedit:
+    path: HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer
+    name: NoControlPanel
+    data: 1
+    type: dword
+  when: ansible_os_family == 'Windows'
+
+- name: Desactivar puertos USB
+  ansible.windows.win_regedit:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\USBSTOR
+    name: Start
+    data: 4
+    type: dword
+  when: ansible_os_family == 'Windows'

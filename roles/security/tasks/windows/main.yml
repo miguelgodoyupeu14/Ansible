@@ -1,6 +1,76 @@
 ---
 # Seguridad y hardening para Windows Server
 
+###############################################################
+# --- Scripts de inicio/cierre de sesión y permisos por rol ---
+###############################################################
+
+# Script de inicio de sesión: registra usuario y hora en log
+- name: Create logon script
+  win_copy:
+    dest: C:\Scripts\logon.ps1
+    content: |
+      $user = $env:USERNAME
+      $time = Get-Date -Format o
+      Add-Content -Path C:\ansible_security.log -Value "LOGON: $user $time"
+
+# Script de cierre de sesión: registra usuario y hora en log
+- name: Create logoff script
+  win_copy:
+    dest: C:\Scripts\logoff.ps1
+    content: |
+      $user = $env:USERNAME
+      $time = Get-Date -Format o
+      Add-Content -Path C:\ansible_security.log -Value "LOGOFF: $user $time"
+
+# Registrar scripts en políticas locales (para todos los usuarios)
+- name: Register logon script in local policy
+  win_command: 'reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v "UserInitMprLogonScript" /t REG_SZ /d "C:\Scripts\logon.ps1" /f'
+  ignore_errors: yes
+
+- name: Register logoff script in local policy
+  win_command: 'reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v "UserLogoffScript" /t REG_SZ /d "C:\Scripts\logoff.ps1" /f'
+  ignore_errors: yes
+
+# Asignar permisos en carpeta académica
+- name: Create academic folder
+  win_file:
+    path: C:\Academico
+    state: directory
+
+- name: Set folder permissions for academico_group
+  win_acl:
+    path: C:\Academico
+    user: academico_group
+    rights: ReadAndExecute, Write
+    type: allow
+    state: present
+
+###############################################################
+# --- Configuración de Local Security Policy (Windows) ---
+###############################################################
+
+- name: Export current Local Security Policy
+  win_command: secedit /export /cfg C:\secpol.cfg
+  register: secedit_export
+
+- name: Importar configuración de seguridad personalizada
+  win_command: secedit /configure /db secedit.sdb /cfg C:\ruta\a\tu\secpol_custom.cfg /areas SECURITYPOLICY
+
+- name: Restringir acceso al Panel de Control
+  win_regedit:
+    path: HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer
+    name: NoControlPanel
+    data: 1
+    type: dword
+
+- name: Desactivar puertos USB
+  win_regedit:
+    path: HKLM:\SYSTEM\CurrentControlSet\Services\USBSTOR
+    name: Start
+    data: 4
+    type: dword
+
 - name: Ensure ansible security log exists (Windows)
   win_file:
     path: C:\ansible_security.log
