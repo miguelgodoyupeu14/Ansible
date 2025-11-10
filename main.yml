@@ -1,15 +1,13 @@
 ---
-# PLAYBOOK PRINCIPAL - Ejecuta toda la configuración del proyecto
-# Este es el archivo maestro que configura todo el sistema completo
 
-- name: "🚀 CONFIGURACIÓN COMPLETA DEL SISTEMA ANSIBLE"
-  hosts: all
-  become: no
+# PLAYBOOK PRINCIPAL - Separado por SO
+
+- name: "🚀 CONFIGURACIÓN COMPLETA DEL SISTEMA ANSIBLE (Linux)"
+  hosts: linux_servers
+  become: true
   gather_facts: yes
-
   vars_files:
-  - secrets.yml # Archivo central de contraseñas y secrets
-
+  - secrets.yml
   pre_tasks:
   - name: "📋 INICIO - Información del sistema y configuración"
     ansible.builtin.debug:
@@ -50,53 +48,18 @@
     ansible.builtin.ping:
     when: ansible_facts['os_family'] != 'Windows'
 
-  - name: "🔍 Verificar conectividad Windows"
-    ansible.windows.win_ping:
-    when: ansible_facts['os_family'] == 'Windows'
-
   - name: "📦 Verificar que Python está disponible (Linux)"
     ansible.builtin.setup:
       gather_subset: min
     when: ansible_facts['os_family'] != 'Windows'
 
   roles:
-  - role: base
-    tags:
-    - base
-    - system
-    - initial
-    - foundational
-
-  - role: users
-    tags:
-    - users
-    - security
-    - accounts
-
-  - role: services
-    tags:
-    - services
-    - daemons
-    - system-services
-
-  - role: storage
-    tags:
-    - storage
-    - filesystem
-    - disks
-
-  - role: gaming
-    tags:
-    - gaming
-    - steam
-    - game-servers
-    when: (gaming_enabled | default(false)) | bool
-
-  - role: audit
-    tags:
-    - audit
-    - monitoring
-    - reporting
+  - base
+  - users
+  - services
+  - storage
+  - { role: gaming, when: (gaming_enabled | default(false)) | bool }
+  - audit
 
   post_tasks:
   - name: "🎉 FINALIZACIÓN - Resumen de configuración completada"
@@ -176,3 +139,101 @@
         Puedes empezar a instalar servidores de juegos
         Gestión: {{ steam_home | default('/data/steam') }}/scripts/steam-manager.sh
     when: (gaming_enabled | default(false)) | bool
+
+- name: "🚀 CONFIGURACIÓN COMPLETA DEL SISTEMA ANSIBLE (Windows)"
+  hosts: windows_servers
+  become: true
+  become_method: runas
+  gather_facts: yes
+  vars_files:
+  - secrets.yml
+  pre_tasks:
+  - name: "📋 INICIO - Información del sistema y configuración"
+    ansible.builtin.debug:
+      msg: |
+        ============================================================
+        🚀 ANSIBLE PROJECT - CONFIGURACIÓN COMPLETA
+        ============================================================
+        📅 Fecha: {{ ansible_date_time.iso8601 }}
+        🖥️  Host: {{ inventory_hostname }} ({{ ansible_host | default('N/A') }})
+        🐧 SO: {{ ansible_facts['distribution'] | default('Unknown') }} {{ ansible_facts['distribution_version'] | default('') }}
+        🏗️  Arquitectura: {{ ansible_facts['architecture'] | default('Unknown') }}
+        👤 Usuario: {{ ansible_user }}
+        🌍 Plataforma: {{ ansible_facts['os_family'] | default('Unknown') }}
+
+        🎯 CONFIGURACIÓN A EJECUTAR:
+        ✅ Configuración base del sistema
+        ✅ Gestión de usuarios y seguridad
+        ✅ Configuración de servicios
+        ✅ Configuración de almacenamiento
+        ✅ Auditoría y monitoreo
+
+        ============================================================
+        🚀 INICIANDO CONFIGURACIÓN COMPLETA...
+        ============================================================
+
+  - name: "🔍 Verificar conectividad Windows"
+    ansible.windows.win_ping:
+
+
+  roles:
+  - base
+  - users
+  - services
+  - storage
+  - audit
+
+  post_tasks:
+  - name: "🎉 FINALIZACIÓN - Resumen de configuración completada"
+    ansible.builtin.debug:
+      msg: |
+        ============================================================
+        🎉 ¡CONFIGURACIÓN COMPLETADA EXITOSAMENTE! 🎉
+        ============================================================
+
+        ✅ COMPONENTES CONFIGURADOS:
+        📋 Sistema base: Paquetes, timezone, firewall
+        👥 Usuarios: Cuentas admin, políticas de grupo
+        ⚙️  Servicios: Servicios críticos habilitados y monitoreados
+        💾 Almacenamiento: Discos y volúmenes configurados
+        📊 Auditoría: Logs y reportes configurados
+
+        🖥️  INFORMACIÓN DEL SERVIDOR:
+        - Host: {{ inventory_hostname }}
+        - IP: {{ ansible_host | default(ansible_default_ipv4.address | default('N/A')) }}
+        - SO: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+        - Memoria: {{ ansible_memtotal_mb | default('N/A') }}MB
+        - CPU: {{ ansible_processor_vcpus | default('N/A') }} cores
+
+        🚀 COMANDOS ÚTILES POST-CONFIGURACIÓN:
+        # Verificar estado general:
+        ansible {{ inventory_hostname }} -m setup
+
+        # Ejecutar solo servicios:
+        ansible-playbook main.yml --tags services
+
+        # Auditoría completa:
+        ansible-playbook main.yml --tags audit
+
+        ============================================================
+        🎯 TU SISTEMA WINDOWS ESTÁ LISTO Y OPERATIVO
+        ============================================================
+
+  - name: "📊 Recopilar facts finales del sistema"
+    ansible.builtin.setup:
+      gather_subset: all
+    register: final_facts
+
+  - name: "✅ Validación final - Confirmar que todo está funcionando"
+    ansible.builtin.assert:
+      that:
+      - ansible_facts is defined
+      - ansible_facts['os_family'] is defined
+      - final_facts is defined
+      fail_msg: |
+        ❌ ERROR: Validación final fallida
+        Algunos componentes no se configuraron correctamente.
+        Revisa los logs anteriores para identificar problemas.
+      success_msg: |
+        ✅ VALIDACIÓN EXITOSA: Todo configurado correctamente
+        Sistema listo para producción.

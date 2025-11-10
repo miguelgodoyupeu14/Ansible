@@ -1,0 +1,19 @@
+---
+# Valores por defecto para el rol security
+min_password_length: 9
+password_max_days: 90
+password_min_days: 0
+password_warn_days: 7
+password_require_upper: -1
+password_require_lower: -1
+password_require_digit: -1
+password_require_special: -1
+login_fail_max: 3
+idle_logout_seconds: 900
+ufw_allowed_ports:
+- 22
+- 80
+- 443
+# Puertos de juego ejemplo
+- 25565
+- 2456

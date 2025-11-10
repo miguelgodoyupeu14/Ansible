@@ -3,10 +3,16 @@
 
 # Usuarios administradores por defecto
 admin_users:
-  - miguelgod
+- miguelgod
 
 # Configuración de contraseñas (desde vault)
-backup_user_password: "{{ vault_backup_user_password | default('CHANGE_ME_VAULT_NEEDED') }}"
+# NOTE: Temporarily setting the backup user password from the user's input.
+# Replace this with an Ansible Vault lookup (vault_backup_user_password) for production.
+# Passwords must be stored in Ansible Vault. Reference the vaulted variable here.
+# Example (encrypt a file with these variables and store it as group_vars/all/vault.yml):
+#   vault_backup_user_password: "<SECRET>"
+# Then this role will read the value from that vaulted variable.
+backup_user_password: "{{ vault_backup_user_password }}"
 
 # Configuración SSH
 ssh_authorized_keys: []

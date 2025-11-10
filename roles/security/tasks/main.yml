@@ -1,0 +1,10 @@
+---
+# Role entrypoint: include platform-specific tasks
+
+- name: Include Linux security tasks
+  include_tasks: linux/main.yml
+  when: ansible_facts['os_family'] != 'Windows'
+
+- name: Include Windows security tasks
+  include_tasks: windows/main.yml
+  when: ansible_facts['os_family'] == 'Windows'

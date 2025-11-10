@@ -1,0 +1,269 @@
+---
+# Seguridad y hardening para Linux (Zentyal)
+
+- name: Ensure ansible security log exists
+  ansible.builtin.file:
+    path: /var/log/ansible_security.log
+    state: touch
+    owner: root
+    group: root
+    mode: '0640'
+
+- name: Configure pwquality (pwquality.conf)
+  ansible.builtin.lineinfile:
+    path: /etc/security/pwquality.conf
+    regexp: '^{{ item.key }}'
+    line: '{{ item.key }} = {{ item.value }}'
+    create: yes
+  loop:
+  - { key: 'minlen', value: '{{ min_password_length }}' }
+  - { key: 'ucredit', value: '{{ password_require_upper }}' }
+  - { key: 'lcredit', value: '{{ password_require_lower }}' }
+  - { key: 'dcredit', value: '{{ password_require_digit }}' }
+  - { key: 'ocredit', value: '{{ password_require_special }}' }
+  notify: Log security step
+
+- name: Ensure pam_pwquality is referenced in common-password
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-password
+    regexp: 'pam_pwquality.so'
+    line: 'password    requisite     pam_pwquality.so retry=3'
+    insertafter: '^password'
+    state: present
+  notify: Log security step
+
+- name: Set default password max days in /etc/login.defs
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_MAX_DAYS'
+    line: 'PASS_MAX_DAYS	{{ password_max_days }}'
+    create: yes
+  notify: Log security step
+
+- name: Set PASS_MIN_LEN in /etc/login.defs
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_MIN_LEN'
+    line: 'PASS_MIN_LEN	{{ min_password_length }}'
+    create: yes
+  notify: Log security step
+
+- name: Configure faillock in /etc/pam.d/common-auth (preauth)
+  ansible.builtin.blockinfile:
+    path: /etc/pam.d/common-auth
+    marker: '# {mark} ANSIBLE-FAILLOCK'
+    block: |
+      auth required pam_faillock.so preauth silent deny={{ login_fail_max }} even_deny_root unlock_time=900
+      auth [default=die] pam_faillock.so authfail deny={{ login_fail_max }} even_deny_root unlock_time=900
+  notify: Log security step
+
+- name: Create auto-logout profile script
+  ansible.builtin.copy:
+    dest: /etc/profile.d/auto_logout.sh
+    content: |
+      #!/bin/sh
+      TMOUT={{ idle_logout_seconds }}
+      readonly TMOUT
+      export TMOUT
+    owner: root
+    group: root
+    mode: '0755'
+  notify: Log security step
+
+- name: Deploy MOTD security banner
+  ansible.builtin.copy:
+    dest: /etc/motd
+    content: |
+      *****************************************************************
+      AVISO: Este es un sistema de laboratorio. Respete las políticas de
+      seguridad: no comparta credenciales, cierre sesión al terminar,
+      no conecte dispositivos personales sin autorización.
+      *****************************************************************
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Log security step
+
+- name: Install and enable ufw
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Allow necessary ports in ufw
+  ansible.builtin.apt: {}
+  when: false
+
+- name: Configure UFW - allow specific ports
+  ansible.builtin.shell: |
+    set -eux
+    ufw --force reset
+    ufw default deny incoming
+    ufw default allow outgoing
+    {% for p in ufw_allowed_ports %}
+    ufw allow {{ p }}
+    {% endfor %}
+    ufw logging on
+    ufw --force enable
+  become: true
+  notify: Log firewall state
+
+- name: Install clamav and freshclam
+  ansible.builtin.apt:
+    name:
+    - clamav
+    - clamav-freshclam
+    state: present
+    update_cache: yes
+  become: true
+  notify: Log security step
+
+- name: Create daily clamscan script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/daily_clamscan.sh
+    content: |
+      #!/bin/bash
+      clamscan -r / --log=/var/log/clamav_scan.log
+    mode: '0755'
+  become: true
+  notify: Log security step
+
+- name: Ensure cron job for daily clamscan exists
+  ansible.builtin.cron:
+    name: "Daily ClamAV scan"
+    job: "/usr/local/bin/daily_clamscan.sh"
+    user: root
+    minute: 0
+    hour: 2
+  become: true
+  notify: Log security step
+
+- name: Create daily security summary script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/security_summary.sh
+    content: |
+      #!/bin/bash
+      echo "--- Security summary: $(date -Iseconds)" >> /var/log/security_summary.log
+      echo "Failed SSH attempts:" >> /var/log/security_summary.log
+      grep -i "failed password" /var/log/auth.log | tail -n 50 >> /var/log/security_summary.log || true
+      echo "Services status:" >> /var/log/security_summary.log
+      systemctl list-units --type=service --state=failed >> /var/log/security_summary.log || true
+      echo "Disk info:" >> /var/log/security_summary.log
+      lsblk >> /var/log/security_summary.log || true
+    mode: '0755'
+  become: true
+  notify: Log security step
+
+- name: Add cron entry for daily security summary
+  ansible.builtin.cron:
+    name: "Daily security summary"
+    job: "/usr/local/bin/security_summary.sh"
+    user: root
+    minute: 30
+    hour: 3
+  become: true
+  notify: Log security step
+
+- name: Ensure /var/log/security_summary.log exists
+  ansible.builtin.file:
+    path: /var/log/security_summary.log
+    state: touch
+    mode: '0640'
+  become: true
+
+- name: Append evidence to ansible_security.log
+  ansible.builtin.shell: |
+    echo "$(date -Iseconds) - Security tasks applied on {{ inventory_hostname }}" >> /var/log/ansible_security.log
+  become: true
+
+# --------------------------
+# Generate a human-friendly summary report and print colored output
+# --------------------------
+
+- name: Check pwquality minlen
+  ansible.builtin.shell: 'grep -E "^minlen[[:space:]]*=" /etc/security/pwquality.conf || true'
+  register: pwq_minlen
+  changed_when: false
+
+- name: Check pam_pwquality reference
+  ansible.builtin.shell: "grep -E 'pam_pwquality.so' /etc/pam.d/common-password || true"
+  register: pwq_ref
+  changed_when: false
+
+- name: Check PASS_MIN_LEN in login.defs
+  ansible.builtin.shell: "grep -E '^PASS_MIN_LEN' /etc/login.defs || true"
+  register: pass_min_len
+  changed_when: false
+
+- name: Check PASS_MAX_DAYS in login.defs
+  ansible.builtin.shell: "grep -E '^PASS_MAX_DAYS' /etc/login.defs || true"
+  register: pass_max_days
+  changed_when: false
+
+- name: Check faillock presence
+  ansible.builtin.shell: "grep -E 'pam_faillock.so' /etc/pam.d/common-auth || true"
+  register: faillock_check
+  changed_when: false
+
+- name: Check auto logout script
+  ansible.builtin.shell: "grep -E 'TMOUT' /etc/profile.d/auto_logout.sh || true"
+  register: autologout_check
+  changed_when: false
+
+- name: Check MOTD banner
+  ansible.builtin.shell: "grep -E 'AVISO:' /etc/motd || true"
+  register: motd_check
+  changed_when: false
+
+- name: Check UFW status
+  ansible.builtin.shell: "ufw status verbose || true"
+  register: ufw_status
+  changed_when: false
+
+- name: Check clamav installed
+  ansible.builtin.shell: "which clamscan || true"
+  register: clamscan_check
+  changed_when: false
+
+- name: Check cron for clamscan
+  ansible.builtin.shell: "crontab -l -u root 2>/dev/null || true"
+  register: root_crontab
+  changed_when: false
+
+- name: Check gamer_user exists
+  ansible.builtin.shell: "getent passwd gamer_user || true"
+  register: gamer_user_check
+  changed_when: false
+
+- name: Build summary lines
+  ansible.builtin.set_fact:
+    security_summary_lines: |
+      {{ [('PWQUALITY minlen: OK (' + (pwq_minlen.stdout | default('not set')) + ')') if (pwq_minlen.stdout is defined and pwq_minlen.stdout|length > 0) else 'PWQUALITY minlen: MISSING'] | join('\n') }}
+
+- name: Append additional checks to summary
+  ansible.builtin.set_fact:
+    security_summary_lines: >-
+      {{ security_summary_lines }} \n{{ 'PAM PWQUALITY referenced: OK' if (pwq_ref.stdout is defined and pwq_ref.stdout|length > 0) else 'PAM PWQUALITY referenced: MISSING' }} \n{{ 'PASS_MIN_LEN: ' + (pass_min_len.stdout | default('missing')) }} \n{{ 'PASS_MAX_DAYS: ' + (pass_max_days.stdout | default('missing')) }} \n{{ 'Faillock configured: OK' if (faillock_check.stdout is defined and faillock_check.stdout|length > 0) else 'Faillock configured: MISSING' }} \n{{ 'Auto-logout (TMOUT): OK' if (autologout_check.stdout is defined and autologout_check.stdout|length > 0) else 'Auto-logout (TMOUT): MISSING' }} \n{{ 'MOTD banner: OK' if (motd_check.stdout is defined and motd_check.stdout|length > 0) else 'MOTD banner: MISSING' }} \n{{ 'UFW status: ' + (ufw_status.stdout.split('\n')[0] if (ufw_status.stdout is defined and ufw_status.stdout|length > 0) else 'unknown') }} \n{{ 'ClamAV installed: OK' if (clamscan_check.stdout is defined and clamscan_check.stdout|length > 0) else 'ClamAV installed: MISSING' }} \n{{ 'ClamAV cron/root crontab contains clamscan: OK' if (root_crontab.stdout is defined and '/usr/local/bin/daily_clamscan.sh' in root_crontab.stdout) else 'ClamAV cron/root crontab: MISSING' }} \n{{ 'gamer_user exists: OK' if (gamer_user_check.stdout is defined and gamer_user_check.stdout|length > 0) else 'gamer_user exists: MISSING' }}
+
+- name: Write security summary to file
+  ansible.builtin.copy:
+    dest: /var/log/ansible_security_summary.log
+    content: "--- Security summary for {{ inventory_hostname }} - {{ ansible_date_time.iso8601 }} ---
+
+      {{ security_summary_lines }}\n"
+    owner: root
+    group: root
+    mode: '0640'
+  become: true
+
+- name: Print human-friendly summary (colored)
+  ansible.builtin.debug:
+    msg: |
+      {% for line in security_summary_lines.split('\n') %}
+      {%   if 'MISSING' in line or 'unknown' in line %}
+      \u001b[31m{{ line }}\u001b[0m
+      {%   else %}
+      \u001b[32m{{ line }}\u001b[0m
+      {%   endif %}
+      {% endfor %}

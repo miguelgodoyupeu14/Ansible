@@ -1,7 +1,12 @@
 # Variables para todos los hosts
-vault_addr: "http://localhost:8200"
-vault_token: "root"
-# Variables para todos los hosts
+# Vault configuration: prefer configuring Vault in the cloud via environment variables
+# Do NOT keep tokens in plaintext in source control. Recommended approaches:
+#  - Export VAULT_ADDR and VAULT_TOKEN in the CI / controller environment
+#  - Use AppRole and store role_id/secret_id in a secure location
+#  - Store only non-sensitive metadata here and fetch secrets at runtime via the lookup plugin
+vault_addr: "{{ lookup('env','VAULT_ADDR') | default('https://vault.your-cloud-vault.example') }}"
+# The token should come from the environment or a secure auth method. Avoid hardcoding.
+vault_token: "{{ lookup('env','VAULT_TOKEN') | default(omit) }}"
 
 # Configuración de zona horaria
 timezone: "America/Lima"

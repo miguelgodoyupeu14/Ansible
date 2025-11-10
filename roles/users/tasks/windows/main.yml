@@ -1,5 +1,21 @@
 ---
+
+---
 # Tareas para usuarios locales
+
+- name: "Intentar obtener backup password desde HashiCorp Vault si no está definida"
+  block:
+  - name: "Leer backup password desde Vault (community.hashi_vault)"
+    set_fact:
+      backup_user_password: "{{ lookup('community.hashi_vault.hashi_vault', 'secret=secret/data/ansible/backup_user field=password engine_version=2') }}"
+    when: backup_user_password is not defined
+
+  rescue:
+  - name: "DEBUG: No se pudo leer backup password desde Vault (plugin ausente o secreto faltante)"
+    ansible.builtin.debug:
+      msg: >-
+        No se pudo recuperar `backup_user_password` desde HashiCorp Vault. Asegúrate de: - Tener instalada la colección: `ansible-galaxy collection install community.hashi_vault` - Exportar `VAULT_ADDR` y `VAULT_TOKEN` o usar AppRole. - Que el secret exista en `secret/data/ansible/backup_user` con el campo `password`.
+    when: backup_user_password is not defined
 
 - name: Crear usuario local backupuser con grupos incluidos
   ansible.windows.win_user:
@@ -11,8 +27,8 @@
     user_cannot_change_password: false
     account_disabled: false
     groups:
-      - "Operadores de copia de seguridad"
-      - "Administradores"
+    - "Operadores de copia de seguridad"
+    - "Administradores"
 
 - name: Esperar unos segundos para propagación del usuario
   ansible.windows.win_shell: Start-Sleep 3
@@ -37,3 +53,38 @@
   ansible.builtin.debug:
     msg: "Usuario backupuser pertenece a los grupos: {{ user_groups.stdout_lines }}"
   when: user_groups.stdout_lines is defined
+
+# Crear el usuario 'backuser' según solicitud del usuario (contraseña proporcionada en Vault)
+- name: Crear usuario local backuser con la contraseña proporcionada
+  ansible.windows.win_user:
+    name: backuser
+    password: "{{ backup_user_password }}"
+    state: present
+    description: "Usuario solicitado backuser"
+    password_never_expires: true
+    user_cannot_change_password: false
+    account_disabled: false
+  ignore_errors: no
+
+# Crear grupo y usuario academico
+- name: Crear grupo academico_group
+  ansible.windows.win_group:
+    name: academico_group
+    state: present
+
+- name: Crear usuario academico_user con permisos limitados
+  ansible.windows.win_user:
+    name: academico_user
+    password: "{{ 'ChangeMe123!' }}"
+    groups: academico_group
+    description: "Usuario académico con permisos limitados"
+    state: present
+
+- name: Mostrar información del usuario academico_user
+  ansible.windows.win_shell: |
+    net user academico_user
+  register: academico_info
+
+- name: Debug academico info
+  ansible.builtin.debug:
+    var: academico_info.stdout_lines

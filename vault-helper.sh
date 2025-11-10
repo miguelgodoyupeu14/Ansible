@@ -36,7 +36,6 @@ COMANDOS DISPONIBLES:
    ./vault-helper.sh create-password
 
 EJEMPLOS:
----------
 # Cifrar por primera vez:
 ./vault-helper.sh encrypt
 
@@ -48,6 +47,18 @@ EJEMPLOS:
 
 # Ejecutar solo gaming:
 ./vault-helper.sh run main.yml --tags gaming
+
+# NOTE: This helper manages Ansible's local encrypted vault files (ansible-vault).
+# If you want to use HashiCorp Vault in the cloud as the secret backend, configure
+# the controller environment with `VAULT_ADDR` and an auth method (e.g. `VAULT_TOKEN`
+# for testing or AppRole in prod). Many playbooks use the community.hashi_vault
+# lookup plugin which reads VAULT_ADDR/VAULT_TOKEN from the environment. Example:
+#
+#   export VAULT_ADDR="https://vault.example.com"
+#   export VAULT_TOKEN="..."
+#
+# For AppRole-based access, fetch role_id/secret_id securely on your controller
+# and export or inject them into the runtime environment before running playbooks.
 
 EOF
 }

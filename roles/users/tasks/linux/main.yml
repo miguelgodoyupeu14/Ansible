@@ -33,10 +33,10 @@
       admin ALL=(ALL) NOPASSWD: /usr/bin/mount, /usr/bin/umount
       admin ALL=(ALL) NOPASSWD: /usr/bin/ufw allow *, /usr/bin/ufw deny *, /usr/bin/ufw status
       admin ALL=(ALL) NOPASSWD: /usr/bin/firewall-cmd *
-      
+
       # Para todo lo demás, requiere password
       admin ALL=(ALL:ALL) ALL
-      
+
       # Usuarios específicos pueden tener permisos completos temporalmente para Ansible
       {% for user in admin_users %}
       {{ user }} ALL=(ALL) NOPASSWD: ALL
@@ -52,3 +52,26 @@
     regexp: '^PASS_MIN_LEN'
     line: 'PASS_MIN_LEN 10'
     state: present
+
+# Crear grupo y usuario gamer (acceso restringido)
+- name: Crear grupo gamer_group
+  ansible.builtin.group:
+    name: gamer_group
+    state: present
+
+- name: Crear usuario gamer_user con acceso restringido
+  ansible.builtin.user:
+    name: gamer_user
+    group: gamer_group
+    shell: /bin/bash
+    home: /home/gamer_user
+    create_home: yes
+    password: "{{ '!' }}"
+    state: present
+
+- name: Set permissions on /home/gamer_user
+  ansible.builtin.file:
+    path: /home/gamer_user
+    owner: gamer_user
+    group: gamer_group
+    mode: '0700'

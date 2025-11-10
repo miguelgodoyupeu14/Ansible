@@ -1,0 +1,131 @@
+---
+# Seguridad y hardening para Windows Server
+
+- name: Ensure ansible security log exists (Windows)
+  win_file:
+    path: C:\ansible_security.log
+    state: touch
+    owner: Administrador
+
+- name: Configure password & lockout policy via net accounts (best-effort)
+  win_command: >-
+    powershell -NoProfile -NonInteractive -Command "net accounts /minpwlen:{{ min_password_length }} /maxpwage:{{ password_max_days }} /uniquepw:5; $sec = Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' -ErrorAction SilentlyContinue;"
+  register: net_accounts_result
+  ignore_errors: yes
+
+- name: Log net accounts result
+  win_shell: |
+    echo "NetAccounts: {{ net_accounts_result.stdout }}" >> C:\ansible_security.log
+  when: net_accounts_result is defined
+
+- name: Enforce password complexity via security policy (best-effort)
+  win_shell: |
+    secedit /export /cfg C:\Windows\Temp\secpol.cfg
+    (Get-Content C:\Windows\Temp\secpol.cfg) -replace 'PasswordComplexity = \\d', 'PasswordComplexity = 1' | Set-Content C:\Windows\Temp\secpol.cfg
+    secedit /configure /db secedit.sdb /cfg C:\Windows\Temp\secpol.cfg /areas SECURITYPOLICY
+  register: secedit_result
+  ignore_errors: yes
+
+- name: Log secedit result
+  win_shell: |
+    echo "secedit_result: {{ secedit_result.rc }} {{ secedit_result.stdout }}" >> C:\ansible_security.log
+  when: secedit_result is defined
+
+- name: Configure Windows Defender preferences and update signatures
+  win_shell: |
+    powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $false; Update-MpSignature; Start-MpScan -ScanType QuickScan"
+  register: defender_result
+
+- name: Log Defender result
+  win_shell: |
+    echo "Defender: {{ defender_result.stdout }}" >> C:\ansible_security.log
+  when: defender_result is defined
+
+- name: Configure Windows Firewall rule Allow HTTP
+  win_firewall_rule:
+    name: "Allow HTTP"
+    enabled: yes
+    protocol: TCP
+    localport: '80'
+    direction: in
+    action: allow
+
+- name: Configure Windows Firewall rule Allow HTTPS
+  win_firewall_rule:
+    name: "Allow HTTPS"
+    enabled: yes
+    protocol: TCP
+    localport: '443'
+    direction: in
+    action: allow
+
+- name: Configure Windows Firewall rule Allow Game Ports
+  win_firewall_rule:
+    name: "Allow Game Ports"
+    enabled: yes
+    protocol: TCP
+    localport: '2456-2458'
+    direction: in
+    action: allow
+
+- name: Ensure firewall is enabled
+  win_shell: |
+    netsh advfirewall set allprofiles state on
+  register: fw_enable
+
+- name: Log firewall state
+  win_shell: |
+    netsh advfirewall show allprofiles >> C:\ansible_security.log
+
+- name: Disable USB storage (set Start=4 in USBSTOR) (best-effort)
+  win_shell: |
+    powershell -NoProfile -Command "Try { New-Item -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\USBSTOR' -Force -ErrorAction SilentlyContinue } Catch {}; Set-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\USBSTOR' -Name 'Start' -Value 4 -Type DWord -Force;"
+  ignore_errors: yes
+
+- name: Block Control Panel via registry (HKLM) (best-effort)
+  win_shell: |
+    powershell -NoProfile -Command "Try { New-Item -Path 'HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer' -Force -ErrorAction SilentlyContinue } Catch {}; Set-ItemProperty -Path 'HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer' -Name 'NoControlPanel' -Value 1 -Type DWord -Force;"
+  ignore_errors: yes
+
+- name: Create academico_group
+  win_group:
+    name: academico_group
+    state: present
+
+- name: Create academico_user with no admin rights
+  block:
+  - name: "Intentar obtener admin password desde HashiCorp Vault si no está definida"
+    set_fact:
+      vault_admin_password: "{{ lookup('community.hashi_vault.hashi_vault', 'secret=secret/data/ansible/admin field=password engine_version=2') }}"
+    when: vault_admin_password is not defined
+
+  - name: Create academico_user with no admin rights
+    win_user:
+      name: academico_user
+      # Prefer vaulted admin password. Falls back to admin_new_password if explicitly supplied
+      password: "{{ vault_admin_password | default(admin_new_password | default(omit)) }}"
+      groups: academico_group
+      state: present
+      description: "Usuario académico con privilegios limitados"
+
+  rescue:
+  - name: "DEBUG: No se pudo leer admin password desde Vault (plugin ausente o secreto faltante)"
+    ansible.builtin.debug:
+      msg: >-
+        No se pudo recuperar `vault_admin_password` desde HashiCorp Vault. Asegúrate de: - Tener instalada la colección: `ansible-galaxy collection install community.hashi_vault` - Exportar `VAULT_ADDR` y `VAULT_TOKEN` o usar AppRole. - Que el secret exista en `secret/data/ansible/admin` con el campo `password`.
+
+- name: "Create scheduled task: security summary (Windows)"
+  win_scheduled_task:
+    name: SecuritySummary
+    actions:
+    - path: PowerShell.exe
+      arguments: "-Command \"Get-EventLog -LogName Security -Newest 100 | Where-Object {$_.EntryType -eq 'FailureAudit'} | Out-File C:\\SecurityReport.log -Append\""
+    triggers:
+    - type: daily
+      start_boundary: '2025-01-01T04:00:00'
+    username: SYSTEM
+    state: present
+
+- name: Append final log entry
+  win_shell: |
+    echo "$(Get-Date -Format o) - Security tasks executed on {{ inventory_hostname }}" >> C:\ansible_security.log

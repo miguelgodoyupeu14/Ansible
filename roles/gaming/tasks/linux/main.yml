@@ -2,13 +2,45 @@
 
 # Tareas para configurar gaming server con Steam
 
-- name: Definir contraseña de Steam (temporalmente estática para debug)
-  set_fact:
-    steam_password: "STEAMUSER"
-
-- name: "DEBUG: Mostrar contraseña de steamuser"
+- name: "DEBUG: Indicar si existe variable de contraseña de Steam (no hardcodeada en el repo)"
   ansible.builtin.debug:
-    msg: "La contraseña de steamuser es: {{ steam_password | default('NO DEFINIDA') }}"
+    msg: >-
+      {% if steam_password is defined %} La variable `steam_password` está definida (valor no mostrado en logs por seguridad). {% else %} La variable `steam_password` NO está definida. Proporciónala en `group_vars`, Vault o mediante la variable de entorno `STEAM_PASSWORD` antes de ejecutar el playbook. {% endif %}
+  tags: always
+
+- name: "Hash de la contraseña de Steam (si está definida)"
+  set_fact:
+    steam_password_hashed: "{{ steam_password | password_hash('sha512') }}"
+  when: steam_password is defined
+
+- name: "Intentar obtener la contraseña de Steam desde HashiCorp Vault si no está definida"
+  block:
+  - name: "Leer secret desde Vault (community.hashi_vault)"
+    set_fact:
+      steam_password_from_vault: "{{ lookup('community.hashi_vault.hashi_vault', 'secret=secret/zentyal_steam field=password') }}"
+    when: steam_password is not defined
+
+  - name: "Asignar steam_password desde Vault si se obtuvo"
+    set_fact:
+      steam_password: "{{ steam_password_from_vault }}"
+    when: steam_password is not defined and steam_password_from_vault is defined
+
+  rescue:
+  - name: "DEBUG: No se pudo leer desde Vault (plugin ausente o error). Mostrar instrucción breve"
+    ansible.builtin.debug:
+      msg: >-
+        No se pudo recuperar la contraseña desde HashiCorp Vault. Asegúrate de: - Tener instalada la colección: `ansible-galaxy collection install community.hashi_vault` - Exportar `VAULT_ADDR` y `VAULT_TOKEN` o configurar auth para el lookup. - Que el secret exista en `secret/zentyal_steam` con el campo `password`.
+    when: steam_password is not defined
+
+- name: "Hash de la contraseña de Steam (si ahora está definida, ya sea por var o por Vault)"
+  set_fact:
+    steam_password_hashed: "{{ steam_password | password_hash('sha512') }}"
+  when: steam_password is defined
+
+- name: "DEBUG opcional - Mostrar contraseña de Steam (solo si show_steam_password=true)"
+  ansible.builtin.debug:
+    msg: "La contraseña de steamuser es: {{ steam_password }}"
+  when: show_steam_password | default(false) | bool
   tags: always
 
 - name: "📋 GAMING SERVER - Información inicial del sistema"
@@ -100,7 +132,7 @@
     shell: /bin/bash
     create_home: yes
     system: yes
-    password: "{{ steam_password | password_hash('sha512') }}"
+    password: "{{ steam_password_hashed | default(omit) }}"
   register: steam_user_created
 
 - name: "📋 Debug - Usuario Steam configurado"

@@ -1,0 +1,13 @@
+---
+# Handlers for security role
+
+- name: Log security step
+  ansible.builtin.shell: |
+    echo "$(date -Iseconds) - {{ ansible_date_time.iso8601 }} - security: {{ ansible_role_name }} step executed on {{ inventory_hostname }}" >> /var/log/ansible_security.log
+  become: true
+
+- name: Log firewall state
+  ansible.builtin.shell: |
+    echo "--- UFW status for {{ inventory_hostname }} ---" >> /var/log/ansible_security.log
+    ufw status verbose >> /var/log/ansible_security.log || true
+  become: true

@@ -1,0 +1,20 @@
+---
+# Playbook para aplicar hardening y recolección de evidencia
+
+- name: "Hardening Linux (Zentyal)"
+  hosts: linux_servers
+  become: true
+  vars_files:
+  - secrets.yml
+  roles:
+  - security
+  - users
+
+- name: "Hardening Windows Servers"
+  hosts: windows_servers
+  gather_facts: yes
+  vars_files:
+  - secrets.yml
+  roles:
+  - security
+  - users
